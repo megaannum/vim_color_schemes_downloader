@@ -650,6 +650,8 @@ function fixFiles() {
             # http://www.vim.org/scripts/script.php?script_id=1498
             if [[ "$file" != "all_colors.rar" ]]; then
                 handleRar "$file"
+            else
+                $RM -f "$file"
             fi
             ;;
         _vimrc)
