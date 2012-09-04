@@ -3,7 +3,7 @@
 # downloadVimColorSchemes.sh
 #
 #   Author: Richard Emberson
-#   Version: 1.0
+#   Version: 1.1
 #
 #   Download all (many) of the Vim color schemes.
 #   Bash script tested only on Fedora Linux.
@@ -113,8 +113,8 @@ SEACH_OUT="search.out"
 TMP_OUT="tmp.out"
 
 TARGET_DIR="$HOME/.vim/tmpcolors" 
-if [[ ! -d $TARGET_DIR ]]; then
-  mkdir $TARGET_DIR
+if [[ ! -d "$TARGET_DIR" ]]; then
+  mkdir "$TARGET_DIR"
 fi
 
 TMP_DIR="$TARGET_DIR/tmp" 
@@ -162,7 +162,7 @@ function shouldDelete() {
   IFS=$' \t'
 
   local -r pwd=$( pwd )
-  cd $TARGET_DIR
+  cd "$TARGET_DIR"
 
   # file0 get maintainer
   local m0=$( head -10 "$file0" | grep 'Maintainer:' | sed -e 's/^.*Maintainer:\s*\(.*\)$/\1/' )
@@ -353,7 +353,7 @@ function shouldDelete() {
 
 function testShouldDelete() {
     PWD=$( pwd )
-    cd $TARGET_DIR
+    cd "$TARGET_DIR"
     for file in *; do
         case "$file" in
             *_1.vim)
@@ -378,6 +378,7 @@ function testShouldDelete() {
 
 ############################################################################
 # moveVimFile "file"
+#  Assumption: in TMP_DIR
 #  Parameters 
 #    file  : the file to move
 #
@@ -438,6 +439,7 @@ function moveVimFile() {
 
 ############################################################################
 # moveVimFiles 
+#  Assumption: in TMP_DIR
 #  Parameters NONE
 #
 # Find all files ending in ".vim". Each one that is either a the top 
@@ -488,14 +490,14 @@ function moveVimFiles() {
 function handleVba() {
     local -r file="$1"
     mkdir "$TMP_DIR"
-    cd $TMP_DIR
+    cd "$TMP_DIR"
     $MV ../"$file" .
 
     $VIM -c "UseVimball $TMP_DIR" -c q "$file"
 
     moveVimFiles
     cd ..
-    $RM -rf $TMP_DIR
+    $RM -rf "$TMP_DIR"
 }
 
 ############################################################################
@@ -509,7 +511,7 @@ function handleVba() {
 function handleVbaGz() {
     local -r file="$1"
     mkdir "$TMP_DIR"
-    cd $TMP_DIR
+    cd "$TMP_DIR"
     $MV ../"$file" .
 
     $UNZIP "$file" 
@@ -518,7 +520,7 @@ function handleVbaGz() {
 
     moveVimFiles
     cd ..
-    $RM -rf $TMP_DIR
+    $RM -rf "$TMP_DIR"
 }
 
 ############################################################################
@@ -532,14 +534,14 @@ function handleVbaGz() {
 function handleRar() {
     local -r file="$1"
     mkdir "$TMP_DIR"
-    cd $TMP_DIR
+    cd "$TMP_DIR"
     $MV ../"$file" .
 
     $UNRAR e "$file" > /dev/null 2>&1
 
     moveVimFiles
     cd ..
-    $RM -rf $TMP_DIR
+    $RM -rf "$TMP_DIR"
 }
 
 ############################################################################
@@ -552,15 +554,15 @@ function handleRar() {
 ############################################################################
 function handleZip() {
     local -r file="$1"
-    mkdir $TMP_DIR
-    cd $TMP_DIR
+    mkdir "$TMP_DIR"
+    cd "$TMP_DIR"
     $MV ../"$file" .
 
     $UNZIP "$file" > /dev/null 2>&1
 
     moveVimFiles
     cd ..
-    $RM -rf $TMP_DIR
+    $RM -rf "$TMP_DIR"
 }
 
 ############################################################################
@@ -573,15 +575,15 @@ function handleZip() {
 ############################################################################
 function handleTarGz() {
     local -r file="$1"
-    mkdir $TMP_DIR
-    cd $TMP_DIR
+    mkdir "$TMP_DIR"
+    cd "$TMP_DIR"
     $MV ../"$file" .
 
     $ZCAT "$file" | $TAR -xf - > /dev/null 2>&1
 
     moveVimFiles
     cd ..
-    $RM -rf $TMP_DIR
+    $RM -rf "$TMP_DIR"
 }
 
 ############################################################################
@@ -594,8 +596,8 @@ function handleTarGz() {
 ############################################################################
 function handleTarBzip() {
     local -r file="$1"
-    mkdir $TMP_DIR
-    cd $TMP_DIR
+    mkdir "$TMP_DIR"
+    cd "$TMP_DIR"
     $MV ../"$file" .
 
     $BZCAT "$file" | $TAR -xf - > /dev/null 2>&1
@@ -603,7 +605,7 @@ function handleTarBzip() {
 
     moveVimFiles
     cd ..
-    $RM -rf $TMP_DIR
+    $RM -rf "$TMP_DIR"
 }
 
 ############################################################################
@@ -617,7 +619,7 @@ function handleTarBzip() {
 ############################################################################
 function fixFiles() {
   local -r pwd=$( pwd )
-  cd $TARGET_DIR
+  cd "$TARGET_DIR"
 
   for file in *; do
     case "$file" in
@@ -650,8 +652,6 @@ function fixFiles() {
             # http://www.vim.org/scripts/script.php?script_id=1498
             if [[ "$file" != "all_colors.rar" ]]; then
                 handleRar "$file"
-            else
-                $RM -f "$file"
             fi
             ;;
         _vimrc)
@@ -678,6 +678,28 @@ function fixFiles() {
 
 # fixFiles
 
+############################################################################
+# downloadVimRuntimeColorSchemes
+#  Parameters NONE
+#
+# This does an ftp to get the current set of Vim Runtime color schemes
+#  from ftp://ftp.nluug.nl/ftp/pub/vim/runtime/colors/.
+#
+############################################################################
+function downloadVimRuntimeColorSchemes() {
+  local -r pwd=$( pwd )
+  cd "$TARGET_DIR"
+
+/bin/ftp -in ftp.nluug.nl  << SCRIPTEND
+user "anonymous" "\n"
+binary
+cd /ftp/pub/vim/runtime/colors/
+mget *.vim
+bye
+SCRIPTEND
+
+  cd $pwd
+}
 
 ############################################################################
 # getColorSchemeIds
@@ -755,10 +777,21 @@ function debug1() {
 function downloadColorSchemeFile() {
   local -r id="$1"
   local -r filename="$2"
+  mkdir "$TMP_DIR"
+  cd "$TMP_DIR"
 
 echo "downloadColorSchemeFile: id=$id   filename=$filename"
 
-  $WGET -O $TARGET_DIR/"$filename" 'http://www.vim.org/scripts/download_script.php?src_id='$id
+  $WGET -O "$TMP_DIR/$filename" 'http://www.vim.org/scripts/download_script.php?src_id='$id
+
+  if [[ ! -e "$TARGET_DIR/filename" ]]; then
+      $MV -f "$TMP_DIR/$filename" "$TARGET_DIR"
+  else
+      moveVimFile "filename"
+  fi
+
+  cd ..
+  $RM -rf "$TMP_DIR"
 }
 
 ############################################################################
@@ -825,6 +858,9 @@ function downloadColorSchemeFiles() {
 ############################################################################
 function mainDriver() {
 
+echo "mainDriver: Download Vim Runtime Color Schemes"
+    downloadVimRuntimeColorSchemes
+
 echo "mainDriver: Get Color Scheme Ids"
     getColorSchemeIds
 
@@ -848,8 +884,8 @@ echo "mainDriver: Fix Files"
     #######################
     # cleanup
     #######################
-    /bin/rm -f $SEACH_OUT
-    /bin/rm -f $TMP_OUT
+    /bin/rm -f "$SEACH_OUT"
+    /bin/rm -f "$TMP_OUT"
 
 echo "mainDriver: Finished"
     return
