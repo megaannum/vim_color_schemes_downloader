@@ -3,7 +3,7 @@
 # downloadVimColorSchemes.sh
 #
 #   Author: Richard Emberson
-#   Version: 1.1
+#   Version: 1.0
 #
 #   Download all (many) of the Vim color schemes.
 #   Bash script tested only on Fedora Linux.
@@ -78,6 +78,7 @@ BZCAT=/bin/bzcat
 WGET=/bin/wget
 MV=/bin/mv
 RM=/bin/rm
+FTP=/bin/ftp
 
 ############################################################################
 # checkExcutableStatus 
@@ -106,6 +107,7 @@ checkExcutableStatus "$BZCAT"
 checkExcutableStatus "$WGET"
 checkExcutableStatus "$MV"
 checkExcutableStatus "$RM"
+checkExcutableStatus "$FTP"
 
 declare RVAL=""
 
@@ -122,8 +124,8 @@ TMP_DIR="$TARGET_DIR/tmp"
 ############################################################################
 # shouldDelete 
 #  Parameters 
-#    file0  : the first file
-#    file1  : the second file
+#    file0  : the first file with path
+#    file1  : the second file with path
 #
 #  Returns: "file1" or "file2" or ""
 #
@@ -159,10 +161,7 @@ function shouldDelete() {
   local -r file0="$1"
   local -r file1="$2"
   RVAL=""
-  IFS=$' \t'
-
-  local -r pwd=$( pwd )
-  cd "$TARGET_DIR"
+  IFS=$' \t\n'
 
   # file0 get maintainer
   local m0=$( head -10 "$file0" | grep 'Maintainer:' | sed -e 's/^.*Maintainer:\s*\(.*\)$/\1/' )
@@ -174,7 +173,6 @@ function shouldDelete() {
   if [[ "$m0" == "" ]]; then
     m0=$( head -10 "$file0" | grep 'author' | sed -e 's/^.*author\s*:\s*\(.*\)$/\1/' )
   fi
-# echo "m0=$m0"
 
   # file1 get maintainer
   local m1=$( head -10 "$file1" | grep 'Maintainer:' | sed -e 's/^.*Maintainer:\s*\(.*\)$/\1/' )
@@ -186,6 +184,7 @@ function shouldDelete() {
   if [[ "$m1" == "" ]]; then
     m1=$( head -10 "$file1" | grep 'author' | sed -e 's/^.*author\s*:\s*\(.*\)$/\1/' )
   fi
+# echo "m0=$m0"
 # echo "m1=$m1"
 
   # get change date
@@ -193,20 +192,41 @@ function shouldDelete() {
   if [[ "$d0" == "" ]]; then
     d0=$( head -10 "$file0" | grep 'Last Modified:' | sed -e 's/^.*Last Modified:.*\(20[0-9][0-9]\).*$/\1/' )
   fi
+  local -a da0=( $( echo $d0) )
+  d0=${da0[0]}
+
   local d1=$( head -10 "$file1" | grep 'Last Change:' | sed -e 's/^.*Last Change:.*\(20[0-9][0-9]\).*$/\1/' )
   if [[ "$d1" == "" ]]; then
     d1=$( head -10 "$file1" | grep 'Last Modified:' | sed -e 's/^.*Last Modified:.*\(20[0-9][0-9]\).*$/\1/' )
   fi
+  local -a da1=( $( echo $d1) )
+  d1=${da1[0]}
+  IFS=$' \t'
+# echo "d0=$d0"
+# echo "d1=$d1"
 
   # get version
   local v0=$( head -10 "$file0" | grep 'Version:' | sed -e 's/^.*Version:[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
   if [[ "$v0" == "" ]]; then
     v0=$( head -10 "$file0" | grep 'version' | sed -e 's/^.*version[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
   fi
+  if [[ "$v0" == "" ]]; then
+    v0=$( head -10 "$file0" | grep ' v[0-9]*\..*$' | sed -e 's/^.*\(v[0-9]*\..*\)$/\1/' )
+  fi
+  local -a va0=( $( echo $v0) )
+  v0=${va0[0]}
+
   local v1=$( head -10 "$file1" | grep 'Version:' | sed -e 's/^.*Version:[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
   if [[ "$v1" == "" ]]; then
     v1=$( head -10 "$file1" | grep 'version' | sed -e 's/^.*version[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
   fi
+  if [[ "$v1" == "" ]]; then
+    v1=$( head -10 "$file1" | grep ' v[0-9]*\..*$' | sed -e 's/^.*\(v[0-9]*\..*\)$/\1/' )
+  fi
+  local -a va1=( $( echo $v1) )
+  v1=${va1[0]}
+# echo "v0=$v0"
+# echo "v1=$v1"
 
   # get file size
   local -r s0=$( stat -c %s "$file0" )
@@ -298,6 +318,7 @@ function shouldDelete() {
 # echo "are_equal"
     # check versions, delete earlier
     if [[ "$v0" != "" ]] && [[ "$v1" != "" ]]; then
+# echo "do version"
       if [[ "$v0" < "$v1" ]]; then
         RVAL="$file0"
       else
@@ -305,7 +326,8 @@ function shouldDelete() {
       fi
     fi
     # check dates, delete older
-    if [[ "$d0" != "" ]] && [[ "$d1" != "" ]]; then
+    if [[ "$RVAL" == "" ]] && [[ "$d0" != "" ]] && [[ "$d1" != "" ]]; then
+# echo "do date"
       if [[ "$d0" < "$d1" ]]; then
         RVAL="$file0"
       else
@@ -315,41 +337,49 @@ function shouldDelete() {
 # echo "s0=$s0"
 # echo "s1=$s1"
     # check size, delete smaller
-    if [[ $s0 -le $s1 ]]; then
+    if [[ "$RVAL" == "" ]] && [[ $s0 -le $s1 ]]; then
+# echo "do size"
       RVAL="$file0"
     fi
   fi
 
-  cd $pwd
+  IFS=$' \t'
   return 0
 }
 
 # baycomb.vim baycomb_1.vim
 # version 2004.0
 # derefined.vim derefined_1.vim
+# desertedocean v0.2b desertedocean v0.5
 
-#shouldDelete darkdot.vim darkdot_1.vim
-#echo "RVAL=$RVAL"
-#shouldDelete Dark.vim Dark_1.vim
-#echo "RVAL=$RVAL"
-# shouldDelete blackdust.vim blackdust_1.vim
+# These will not match
+#   NOTE: silent.vim size > silent_1.vim size
+# shouldDelete silent.vim      silent_1.vim      
 # echo "RVAL=$RVAL"
-# shouldDelete buttercream.vim buttercream_1.vim
+# shouldDelete blue.vim blue_1.vim
 # echo "RVAL=$RVAL"
-#shouldDelete aiseered.vim aiseered_1.vim
-#echo "RVAL=$RVAL"
-# shouldDelete white.vim white_1.vim 
+# shouldDelete railscasts.vim  railscasts_1.vim  
 # echo "RVAL=$RVAL"
-# echo "shouldDelete billw.vim billw_1.vim"
-# shouldDelete billw.vim billw_1.vim 
+# shouldDelete tango.vim tango_1.vim
 # echo "RVAL=$RVAL"
-# shouldDelete zen.vim zen_1.vim
+# shouldDelete darkblue.vim  darkblue_1.vim  
 # echo "RVAL=$RVAL"
-# shouldDelete adam.vim adam_1.vim
-# echo "RVAL=$RVAL"
-# shouldDelete adaryn.vim adaryn_1.vim
+# shouldDelete twilight.vim twilight_1.vim
 # echo "RVAL=$RVAL"
 
+# These will match
+# shouldDelete desertedocean.vim  desertedocean_1.vim  
+# echo "RVAL=$RVAL"
+# shouldDelete desert.vim         desert_1.vim         
+# echo "RVAL=$RVAL"
+# shouldDelete torte.vim torte_1.vim
+# echo "RVAL=$RVAL"
+# shouldDelete delek.vim     delek_1.vim     
+# echo "RVAL=$RVAL"
+# shouldDelete lingodirector.vim  lingodirector_1.vim  
+# echo "RVAL=$RVAL"
+
+# exit
 
 function testShouldDelete() {
     PWD=$( pwd )
@@ -388,52 +418,87 @@ function testShouldDelete() {
 #
 ############################################################################
 function moveVimFile() {
-    local -r file="$1"
-    local -r base=$( basename "$file" )
+  local -r file="$1"
+  local -r base=$( basename "$file" )
+  local filename=""
 
+# echo "moveVimFile: file=$file"
+# echo "moveVimFile: base=$base"
     if [[ -e ../"$base" ]]; then
+# echo "moveVimFile: EXISTS ../$base"
         diff -q ../"$base" "$file" > /dev/null 2>&1
         status=$?
+# echo "moveVimFile: status=$status"
         if [[ $status -eq 1 ]]; then
-            # echo "ERROR: could not move $file"
-            filename=$( basename "$base" .vim )
-            name1="$filename"_1.vim
-            if [[ -e ../"$name1" ]]; then
-                diff -q ../"$name1" "$file" > /dev/null 2>&1
-                status=$?
-                if [[ $status -eq 1 ]]; then
-                    name2="$filename"_2.vim
-                    if [[ -e ../"$name2" ]]; then
-                        diff -q ../"$name2" "$file" > /dev/null 2>&1
-                        status=$?
-                        if [[ $status -eq 1 ]]; then
-                            name3="$filename"_3.vim
-                            if [[ -e ../"$name3" ]]; then
-                                diff -q ../"$name3" "$file" > /dev/null 2>&1
-                                status=$?
-                                if [[ $status -eq 1 ]]; then
-                                  name4="$filename"_4.vim
-                                  if [[ -e ../"$name4" ]]; then
-                                    echo "ERROR: could not move $name4"
-                                  else
-                                    $MV "$file" ../"$name4"
-                                  fi
-                                fi
-                            else
-                                $MV "$file" ../"$name3"
-                            fi
-                        fi
-                    else
-                        $MV "$file" ../"$name2"
-                    fi
+
+            # files are different
+            # file with same name already exists
+            # see which one would be kept/deleted
+            shouldDelete ../"$base" "$file"
+# echo "moveVimFile RVAL=$RVAL"
+            if [[ "$RVAL" != "" ]]; then
+                if [[ "$RVAL" == "../$base" ]]; then
+# echo "moveVimFile moving "$file""
+                    $MV -f "$file" ../"$file"
                 fi
             else
-                $MV "$file" ../"$name1"
+                # echo "ERROR: could not move $file"
+                filename=$( basename "$base" .vim )
+# echo "moveVimFile: filename=$filename"
+                name1="$filename"_1.vim
+# echo "moveVimFile: name1=$name1"
+                if [[ -e ../"$name1" ]]; then
+                    diff -q ../"$name1" "$file" > /dev/null 2>&1
+                    status=$?
+                    if [[ $status -eq 1 ]]; then
+
+                        # files are different
+                        # file with same name already exists
+                        # see which one would be kept/deleted
+                        shouldDelete ../"$name1" "$file"
+# echo "moveVimFile RVAL=$RVAL"
+                        if [[ "$RVAL" != "" ]]; then
+                            if [[ "$RVAL" == "../$name1" ]]; then
+# echo "moveVimFile moving "$file""
+                                $MV -f "$file" ../"$name1"
+                            fi
+                        else
+                            name2="$filename"_2.vim
+                            if [[ -e ../"$name2" ]]; then
+                                diff -q ../"$name2" "$file" > /dev/null 2>&1
+                                status=$?
+                                if [[ $status -eq 1 ]]; then
+                                    name3="$filename"_3.vim
+                                    if [[ -e ../"$name3" ]]; then
+                                        diff -q ../"$name3" "$file" > /dev/null 2>&1
+                                        status=$?
+                                        if [[ $status -eq 1 ]]; then
+                                        name4="$filename"_4.vim
+                                        if [[ -e ../"$name4" ]]; then
+                                            echo "ERROR: could not move $name4"
+                                        else
+                                            $MV "$file" ../"$name4"
+                                        fi
+                                        fi
+                                    else
+                                        $MV "$file" ../"$name3"
+                                    fi
+                                fi
+                            else
+# echo "moveVimFile file does not exist: moving $name2"
+                                $MV "$file" ../"$name2"
+                            fi
+                        fi
+                    fi
+                else
+# echo "moveVimFile file does not exist: moving $name1"
+                    $MV "$file" ../"$name1"
+                fi
             fi
         fi
     else
-        # echo "moving $file"
-        $MV "$file" ..
+# echo "moveVimFile file does not exist: moving $file"
+        $MV "$file" ../"$base"
     fi
 }
 
@@ -652,6 +717,8 @@ function fixFiles() {
             # http://www.vim.org/scripts/script.php?script_id=1498
             if [[ "$file" != "all_colors.rar" ]]; then
                 handleRar "$file"
+            else
+                $RM "$file"
             fi
             ;;
         _vimrc)
@@ -690,7 +757,7 @@ function downloadVimRuntimeColorSchemes() {
   local -r pwd=$( pwd )
   cd "$TARGET_DIR"
 
-/bin/ftp -in ftp.nluug.nl  << SCRIPTEND
+$FTP -in ftp.nluug.nl  << SCRIPTEND
 user "anonymous" "\n"
 binary
 cd /ftp/pub/vim/runtime/colors/
@@ -776,18 +843,20 @@ function debug1() {
 ############################################################################
 function downloadColorSchemeFile() {
   local -r id="$1"
-  local -r filename="$2"
+  local filename="$2"
   mkdir "$TMP_DIR"
   cd "$TMP_DIR"
 
-echo "downloadColorSchemeFile: id=$id   filename=$filename"
+# echo "downloadColorSchemeFile: id=$id   filename=$filename"
 
   $WGET -O "$TMP_DIR/$filename" 'http://www.vim.org/scripts/download_script.php?src_id='$id
 
-  if [[ ! -e "$TARGET_DIR/filename" ]]; then
+  if [[ ! -e "$TARGET_DIR/$filename" ]]; then
+# echo "downloadColorSchemeFile: new file: $filename"
       $MV -f "$TMP_DIR/$filename" "$TARGET_DIR"
   else
-      moveVimFile "filename"
+# echo "downloadColorSchemeFile: moveVimFile: $filename"
+      moveVimFile "$filename"
   fi
 
   cd ..
@@ -893,6 +962,14 @@ echo "mainDriver: Finished"
 
 mainDriver
 
+function test1() {
+if [[ ! -d "$TMP_DIR" ]]; then
+  mkdir "$TMP_DIR"
+fi
+cd "$TMP_DIR"
+moveVimFile delek.vim
+cd ~/.vim
+}
 
 exit 0
 

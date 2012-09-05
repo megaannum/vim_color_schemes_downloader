@@ -21,10 +21,11 @@ The location of some of the executables used by the script may
 differ in different Linux distributions. They will have to be
 adjusted in such cases.
 
-Currently, the script downloads some 592 "unique" Vim color scheme files.
+Currently, the script downloads some 598 "unique" Vim color scheme files.
 
 # Purpose
 
 I wrote the script so that I could populate the Vim script
-*color_schemer.vim* with an initial set of Vim color schemes.
+[color_schemer.vim] (https://github.com/megaannum/colorschemer)
+with an initial set of Vim color schemes.
 I posted the script to github simply for safe keeping.
