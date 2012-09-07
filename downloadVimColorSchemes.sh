@@ -866,7 +866,7 @@ function lastCleanup() {
               if [[ "$RVAL" != "" ]]; then
 #echo "$file   $base.vim"
 #echo "RVAL=$RVAL"
-                $RM -rf "$file"
+                $RM -rf "$RVAL"
               fi
             fi
         ;;
