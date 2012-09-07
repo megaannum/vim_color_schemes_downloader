@@ -27,6 +27,21 @@ else
   CYGWIN=false
 fi
 
+
+# default values
+declare SEACH_OUT="search.out"
+declare TMP_OUT="tmp.out"
+
+declare TARGET_DIR="$HOME/.vim/tmpcolors" 
+declare OUT_FILE="OUT" 
+
+declare -i VERBOSE=0
+
+declare -i DOWNLOAD_VIM_RUNTIME_CS=1
+declare -i DOWNLOAD_VIM_CS=1
+declare -i DOWNLOAD_OTHER_CS=1
+declare -i RESOLVE_FILES=1
+
 function usage() {
   echo $1
   cat <<EOF
@@ -34,16 +49,46 @@ Usage: $SCRIPT options
   Download color schemes from www.vim.org.
   An attempt is made to remove duplicate versions of the same 
     color scheme.
+  Stages:
+    Download Vim runtime color scheme files
+        These are the cs files bundled with Vim
+    Download Vim user contributed color scheme files
+        These are cs files created by users and registered at vim.org
+        Included in these files are some compilations
+    Download other color scheme file compilations
+        These are cs file compiliations created by users 
+        and are not at vim.org
+    Resolve downloaded files
   Options:
    -h --help -\?:      
      Help, print this message.
+   -v --verbose :      
+     Echo messages to output file $OUT_FILE  
+   -o outfile || --outfile outfile:
+   -o=outfile || --outfile=outfile:      
+     Change verbose output file from default: $OUT_FILE
+   -t dir || --targetdir dir:
+   -t=dir || --targetdir=dir:      
+     Change target download directory from default: $TARGET_DIR
+   -nortcs --no_runtime_color_scheme -\?:      
+     Do not download Vim runtime color scheme files
+   -nocs --no_color_scheme -\?:      
+     Do not download Vim color scheme files
+   -noocs --no_other_color_scheme -\?:      
+     Do not download other color scheme file compilations
+   -norf --no_resolve_files -\?:      
+     Do not resolve all of the downloaded files
 Examples:
 ./$SCRIPT
 ./$SCRIPT --help
+./$SCRIPT -v
+./$SCRIPT -t $HOME/.vim/csdownload
 EOF
 exit 1
 }
 
+
+# parse options
 while [[ $# -gt 0 && "$1" == -* ]]; do
     declare optarg=
 
@@ -59,12 +104,60 @@ while [[ $# -gt 0 && "$1" == -* ]]; do
         -h | --help | -\?)
             usage ""
         ;;
-        -*)
+        -v | --verbose )
+            VERBOSE=1
+        ;;
+        -o=* | --outfile=*)
+            OUT_FILE="$optarg"
+        ;;
+        -o | --outfile )
+            shift
+            if [[ $# -eq 0 ]]; then
+                usage "Missing verbose output file -o"
+            fi
+            OUT_FILE="$1"
+        ;;
+        -t=* | --targetdir=*)
+            TARGET_DIR="$optarg"
+        ;;
+        -t | --target_dir )
+            shift
+            if [[ $# -eq 0 ]]; then
+                usage "Missing target directory -t"
+            fi
+            TARGET_DIR="$1"
+        ;;
+        -nortcs | --no_runtime_color_scheme )
+            DOWNLOAD_VIM_RUNTIME_CS=0
+        ;;
+        -nocs | --no_color_scheme )
+            DOWNLOAD_VIM_CS=0
+        ;;
+        -noocs | --no_other_color_scheme )
+            DOWNLOAD_OTHER_CS=0
+        ;;
+        -norf | --no_resolve_files )
+            RESOLVE_FILES=0
+        ;;
+        *)
             usage "Unknown option \"$1\""
         ;;
     esac
     shift
 done
+
+# takes no additional arguments
+if [[ $# -ne 0 ]]; then
+    usage "Bad argument \"$1\""
+fi
+
+
+if [[ ! -d "$TARGET_DIR" ]]; then
+  mkdir "$TARGET_DIR"
+fi
+
+TMP_DIR="$TARGET_DIR/tmp" 
+
 
 
 # uses might have to change these locations
@@ -72,12 +165,13 @@ VIM=/bin/vim
 UNRAR=/bin/unrar
 UNZIP=/bin/unzip
 ZCAT=/bin/zcat 
-UNZIP=/bin/gunzip 
+GUNZIP=/bin/gunzip 
 TAR=/bin/tar
 BZCAT=/bin/bzcat
 WGET=/bin/wget
 MV=/bin/mv
 RM=/bin/rm
+CP=/bin/cp
 FTP=/bin/ftp
 
 ############################################################################
@@ -101,7 +195,7 @@ checkExcutableStatus "$VIM"
 checkExcutableStatus "$UNRAR"
 checkExcutableStatus "$UNZIP"
 checkExcutableStatus "$ZCAT"
-checkExcutableStatus "$UNZIP"
+checkExcutableStatus "$GUNZIP"
 checkExcutableStatus "$TAR"
 checkExcutableStatus "$BZCAT"
 checkExcutableStatus "$WGET"
@@ -109,17 +203,9 @@ checkExcutableStatus "$MV"
 checkExcutableStatus "$RM"
 checkExcutableStatus "$FTP"
 
+# used as a function string return value
 declare RVAL=""
 
-SEACH_OUT="search.out"
-TMP_OUT="tmp.out"
-
-TARGET_DIR="$HOME/.vim/tmpcolors" 
-if [[ ! -d "$TARGET_DIR" ]]; then
-  mkdir "$TARGET_DIR"
-fi
-
-TMP_DIR="$TARGET_DIR/tmp" 
 
 ############################################################################
 # shouldDelete 
@@ -422,8 +508,10 @@ function moveVimFile() {
   local -r base=$( basename "$file" )
   local filename=""
 
-# echo "moveVimFile: file=$file"
-# echo "moveVimFile: base=$base"
+if [[ $VERBOSE -eq 1 ]]; then
+echo "moveVimFile: file=$file"
+echo "moveVimFile: base=$base"
+fi
     if [[ -e ../"$base" ]]; then
 # echo "moveVimFile: EXISTS ../$base"
         diff -q ../"$base" "$file" > /dev/null 2>&1
@@ -439,7 +527,7 @@ function moveVimFile() {
             if [[ "$RVAL" != "" ]]; then
                 if [[ "$RVAL" == "../$base" ]]; then
 # echo "moveVimFile moving "$file""
-                    $MV -f "$file" ../"$file"
+                    $MV -f "$file" ../"$base"
                 fi
             else
                 # echo "ERROR: could not move $file"
@@ -518,6 +606,9 @@ function moveVimFiles() {
     local  -a vimfiles=( $( find . -type f -name "*.vim" ) )
     IFS=$' \t'
     for vimfile in "${vimfiles[@]}" ; do
+if [[ $VERBOSE -eq 1 ]]; then
+echo "moveVimFiles: file=$vimfile"
+fi
         dirpart=$( dirname "$vimfile")
         if [[ "$dirpart" == "." ]]; then
             moveVimFile "$vimfile"
@@ -579,7 +670,7 @@ function handleVbaGz() {
     cd "$TMP_DIR"
     $MV ../"$file" .
 
-    $UNZIP "$file" 
+    $GUNZIP "$file" 
     local -r base=$( basename "$file" .gz )
     $VIM -c "UseVimball $TMP_DIR" -c q "$base"
 
@@ -674,7 +765,7 @@ function handleTarBzip() {
 }
 
 ############################################################################
-# fixFiles
+# resolveFiles
 #  Parameters NONE
 #
 # For each file in target directory, if the file is not a *.vim (color scheme)
@@ -682,13 +773,21 @@ function handleTarBzip() {
 #   move content files to target directory.
 #
 ############################################################################
-function fixFiles() {
+function resolveFiles() {
   local -r pwd=$( pwd )
   cd "$TARGET_DIR"
 
   for file in *; do
+if [[ $VERBOSE -eq 1 ]]; then
+echo "resolveFiles: file=$file"
+fi
     case "$file" in
         *.vim)
+            # This script is really cool, but its not a color scheme,
+            # rather, it will change your colors based upon time of day.
+            if [[ "$file" == "daytimecolorer.vim" ]]; then
+                $RM "$file"
+            fi
             ;;
         tmp)
             ;;
@@ -731,7 +830,7 @@ function fixFiles() {
             $MV white.txt white_1.vim
             ;;
         *)
-            echo "ERROR file=$file"
+            echo "ERROR can not resolve file=$file"
             ;;
     esac
   done
@@ -742,8 +841,6 @@ function fixFiles() {
 
   cd $pwd
 }
-
-# fixFiles
 
 ############################################################################
 # downloadVimRuntimeColorSchemes
@@ -777,7 +874,20 @@ SCRIPTEND
 #
 ############################################################################
 function getColorSchemeIds() {
+  local -i success=0
+  for ((attempts=0; attempts <= 5 ; attempts++)); do 
+# echo "getColorSchemeIds: attempts=$attempts"
     $WGET -O $SEACH_OUT 'http://www.vim.org/scripts/script_search_results.php?&script_type=color%20scheme&show_me=1500'
+    if [[ $? -eq 0 ]]; then
+      success=1
+      break;
+    fi
+    sleep $attempts
+  done
+# echo "getColorSchemeIds: success=$success"
+  if [[ $success -ne 1 ]]; then
+    echo "ERROR: could not download color scheme search"
+  fi
 }
 
 
@@ -849,14 +959,25 @@ function downloadColorSchemeFile() {
 
 # echo "downloadColorSchemeFile: id=$id   filename=$filename"
 
-  $WGET -O "$TMP_DIR/$filename" 'http://www.vim.org/scripts/download_script.php?src_id='$id
-
-  if [[ ! -e "$TARGET_DIR/$filename" ]]; then
+  local -i success=0
+  for ((attempts=0; attempts <= 5 ; attempts++)); do 
+    $WGET -O "$TMP_DIR/$filename" 'http://www.vim.org/scripts/download_script.php?src_id='$id
+    if [[ $? -eq 0 ]]; then
+      success=1
+      break;
+    fi
+    sleep $attempts
+  done
+  if [[ $success -ne 1 ]]; then
+    echo "ERROR: could not download color scheme id=$id, filename=$filename"
+  else
+    if [[ ! -e "$TARGET_DIR/$filename" ]]; then
 # echo "downloadColorSchemeFile: new file: $filename"
       $MV -f "$TMP_DIR/$filename" "$TARGET_DIR"
-  else
+    else
 # echo "downloadColorSchemeFile: moveVimFile: $filename"
       moveVimFile "$filename"
+    fi
   fi
 
   cd ..
@@ -875,13 +996,25 @@ function downloadColorSchemeFiles() {
     local -a page_ids=( "${@}" )
     # id value/name pairs
     local -a vn_pairs
+    local -i success=0
 
     # download each schema page and then download 
     # first (latest) color scheme file
     for page_id in "${page_ids[@]}" ; do
     
 # echo "downloadColorSchemeFiles: page_id=$page_id"
+      success=0
+      for ((attempts=0; attempts <= 5 ; attempts++)); do 
         $WGET -O $TMP_OUT 'http://www.vim.org/scripts/script.php?script_id='$page_id
+        if [[ $? -eq 0 ]]; then
+          success=1
+          break;
+        fi
+        sleep $attempts
+      done
+      if [[ $success -ne 1 ]]; then
+        echo "ERROR: could not download color scheme page_id=$page_id"
+      else
         IFS=$'\n'
         # id value/name pair
         vn_pairs=( $( grep download_script $TMP_OUT | sed -e 's/.*src_id=\([^"]*\)">\([^<]*\)<.*/\1 \2/' ) )
@@ -893,33 +1026,88 @@ function downloadColorSchemeFiles() {
         local -i end=$(( ${#vn_pairs[@]} - 1 ))
         for ((index=0; index <= $end ; index++)); do 
 # echo "index=$index"
-            local xx=${vn_pairs[$index]}
+          local xx=${vn_pairs[$index]}
 # echo "xx=$xx"
-            # local -a vn_pair=( ${vn_pairs[$index]} )
-            local -a vn_pair=( $xx )
+          # local -a vn_pair=( ${vn_pairs[$index]} )
+          local -a vn_pair=( $xx )
 # echo "vn_pair=${vn_pair[@]}"
-            # echo "pair0=${vn_pair[0]}"
-            # echo "pair1=${vn_pair[1]}"
+          # echo "pair0=${vn_pair[0]}"
+          # echo "pair1=${vn_pair[1]}"
 
-            # script id 
-            id=${vn_pair[0]}
-            # script name 
-            name=${vn_pair[1]}
-            case "$name" in
-                *.png)
-                    ;;
-                *)
-                    name=$( echo $name | tr -d "[' ]" | tr '[:upper:]' '[:lower:]' )
-                    downloadColorSchemeFile "$id" "$name"
-                    break
-                    ;;
-            esac
+          # script id 
+          id=${vn_pair[0]}
+          # script name 
+          name=${vn_pair[1]}
+          case "$name" in
+            *.png)
+            ;;
+            *)
+              name=$( echo $name | tr -d "[' ]" | tr '[:upper:]' '[:lower:]' )
+              downloadColorSchemeFile "$id" "$name"
+              break
+            ;;
+          esac
         done
+      fi
     done
 }
 
 ############################################################################
-# maintainer
+# downloadVimColorSchemes
+#  Parameters: NONE
+#
+# Download all files from www.vim.org which are "color scheme" files.
+#
+############################################################################
+function downloadVimColorSchemes() {
+
+# echo "downloadVimColorSchemes: Get Color Scheme Ids"
+    getColorSchemeIds
+
+# echo "downloadVimColorSchemes: Extract Script Ids"
+    local -a ids=( $(extractScriptIds) )
+
+# echo "downloadVimColorSchemes: ids=${ids[@]}"
+    # debug
+    #for p in "${ids[@]}" ; do
+    #    echo "id=$p"
+    #done
+
+# echo "downloadVimColorSchemes: Download Color Scheme Files"
+    downloadColorSchemeFiles "${ids[@]}"
+}
+
+############################################################################
+# downloadOtherColorSchemes
+#  Parameters: NONE
+#
+# Download compilations from other sources.
+#
+############################################################################
+function downloadOtherColorSchemes() {
+  local -r pwd=$( pwd )
+  cd "$TARGET_DIR"
+
+  # https://github.com/flazz/vim-colorschemes/
+  outfile="flazz-vim-colorschemes.zip"
+  local -i success=0
+  for ((attempts=0; attempts <= 5 ; attempts++)); do 
+    $WGET -O $outfile 'https://github.com/flazz/vim-colorschemes/zipball/master'
+    if [[ $? -eq 0 ]]; then
+      success=1
+      break;
+    fi
+    sleep $attempts
+  done
+  if [[ $success -ne 1 ]]; then
+    echo "ERROR: could not download color scheme compilation: flazz-vim-colorschemes.zip"
+  fi
+
+  cd $pwd
+}
+
+############################################################################
+# mainDriver
 #  Parameters: NONE
 #
 # Drives the downloading of color scheme files
@@ -927,28 +1115,33 @@ function downloadColorSchemeFiles() {
 ############################################################################
 function mainDriver() {
 
+if [[ $VERBOSE -eq 1 ]]; then
 echo "mainDriver: Download Vim Runtime Color Schemes"
-    downloadVimRuntimeColorSchemes
+fi
+    if [[ $DOWNLOAD_VIM_RUNTIME_CS -eq 1 ]]; then
+        downloadVimRuntimeColorSchemes
+    fi
 
-echo "mainDriver: Get Color Scheme Ids"
-    getColorSchemeIds
+if [[ $VERBOSE -eq 1 ]]; then
+echo "mainDriver: Download Vim Color Schemes"
+fi
+    if [[ $DOWNLOAD_VIM_CS -eq 1 ]]; then
+        downloadVimColorSchemes
+    fi
 
-echo "mainDriver: Extract Script Ids"
-    local -a ids=( $(extractScriptIds) )
+if [[ $VERBOSE -eq 1 ]]; then
+echo "mainDriver: Download Other Color Schemes"
+fi
+    if [[ $DOWNLOAD_OTHER_CS -eq 1 ]]; then
+        downloadOtherColorSchemes
+    fi
 
-# echo "mainDriver: ids=${ids[@]}"
-    # debug
-    #for p in "${ids[@]}" ; do
-    #    echo "id=$p"
-    #done
-
-echo "mainDriver: MID"
-
-echo "mainDriver: Download Color Scheme Files"
-    downloadColorSchemeFiles "${ids[@]}"
-
-echo "mainDriver: Fix Files"
-    fixFiles
+if [[ $VERBOSE -eq 1 ]]; then
+echo "mainDriver: Resolve Files"
+fi
+    if [[ $RESOLVE_FILES -eq 1 ]]; then
+        resolveFiles
+    fi
 
     #######################
     # cleanup
@@ -956,7 +1149,9 @@ echo "mainDriver: Fix Files"
     /bin/rm -f "$SEACH_OUT"
     /bin/rm -f "$TMP_OUT"
 
+if [[ $VERBOSE -eq 1 ]]; then
 echo "mainDriver: Finished"
+fi
     return
 }
 
