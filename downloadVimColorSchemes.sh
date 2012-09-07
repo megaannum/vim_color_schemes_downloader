@@ -322,6 +322,7 @@ function shouldDelete() {
 
   # maintainer are identical
   if [[ "$m0" == "$m1" ]] && [[ "$m0" != "" ]]; then
+# echo "identical non empty"
     are_equal=1
   else
     # break maintainer field into parts
@@ -378,6 +379,7 @@ function shouldDelete() {
 	# if only one line in the first 6 lines is different, 
 	# assume the same color scheme modulo version
 	if [[ $cnt -ge $end ]]; then
+# echo "first lines equal"
 	    are_equal=1
 	fi
     fi
@@ -393,6 +395,7 @@ function shouldDelete() {
 	    fi
 	done
 	if [[ $cnt -eq 10 ]]; then
+# echo "last lines equal"
 	    are_equal=1
 	fi
     fi
@@ -423,9 +426,14 @@ function shouldDelete() {
 # echo "s0=$s0"
 # echo "s1=$s1"
     # check size, delete smaller
-    if [[ "$RVAL" == "" ]] && [[ $s0 -le $s1 ]]; then
-# echo "do size"
-      RVAL="$file0"
+    if [[ "$RVAL" == "" ]]; then
+      if [[ $s0 -eq $s1 ]]; then
+# echo "do size s0 == s1"
+        RVAL="$file1"
+      elif [[ $s0 -lt $s1 ]]; then
+# echo "do size s0 < s1"
+        RVAL="$file0"
+      fi
     fi
   fi
 
@@ -437,6 +445,9 @@ function shouldDelete() {
 # version 2004.0
 # derefined.vim derefined_1.vim
 # desertedocean v0.2b desertedocean v0.5
+
+#shouldDelete breeze.vim breeze_1.vim
+#echo "RVAL=$RVAL"
 
 # These will not match
 #   NOTE: silent.vim size > silent_1.vim size
@@ -513,28 +524,28 @@ echo "moveVimFile: file=$file"
 echo "moveVimFile: base=$base"
 fi
     if [[ -e ../"$base" ]]; then
-# echo "moveVimFile: EXISTS ../$base"
+echo "moveVimFile: EXISTS ../$base"
         diff -q ../"$base" "$file" > /dev/null 2>&1
         status=$?
-# echo "moveVimFile: status=$status"
+echo "moveVimFile: status=$status"
         if [[ $status -eq 1 ]]; then
 
             # files are different
             # file with same name already exists
             # see which one would be kept/deleted
             shouldDelete ../"$base" "$file"
-# echo "moveVimFile RVAL=$RVAL"
+echo "moveVimFile RVAL=$RVAL"
             if [[ "$RVAL" != "" ]]; then
                 if [[ "$RVAL" == "../$base" ]]; then
-# echo "moveVimFile moving "$file""
+echo "moveVimFile moving "$file""
                     $MV -f "$file" ../"$base"
                 fi
             else
                 # echo "ERROR: could not move $file"
                 filename=$( basename "$base" .vim )
-# echo "moveVimFile: filename=$filename"
+echo "moveVimFile: filename=$filename"
                 name1="$filename"_1.vim
-# echo "moveVimFile: name1=$name1"
+echo "moveVimFile: name1=$name1"
                 if [[ -e ../"$name1" ]]; then
                     diff -q ../"$name1" "$file" > /dev/null 2>&1
                     status=$?
@@ -544,10 +555,10 @@ fi
                         # file with same name already exists
                         # see which one would be kept/deleted
                         shouldDelete ../"$name1" "$file"
-# echo "moveVimFile RVAL=$RVAL"
+echo "moveVimFile RVAL=$RVAL"
                         if [[ "$RVAL" != "" ]]; then
                             if [[ "$RVAL" == "../$name1" ]]; then
-# echo "moveVimFile moving "$file""
+echo "moveVimFile moving "$file""
                                 $MV -f "$file" ../"$name1"
                             fi
                         else
@@ -841,6 +852,36 @@ fi
 
   cd $pwd
 }
+
+function lastCleanup() {
+  local -r pwd=$( pwd )
+  cd "$TARGET_DIR"
+
+  for file in *; do
+    case "$file" in
+        *_1.vim)
+            base=$( basename "$file" _1.vim)
+            if [[ -e $base.vim ]]; then
+              shouldDelete $base.vim $file
+              if [[ "$RVAL" != "" ]]; then
+#echo "$file   $base.vim"
+#echo "RVAL=$RVAL"
+                $RM -rf "$file"
+              fi
+            fi
+        ;;
+        *.vim)
+        ;;
+        *)
+            echo "ERROR can not cleanup file=$file"
+        ;;
+    esac
+  done
+
+  cd $pwd
+}
+
+
 
 ############################################################################
 # downloadVimRuntimeColorSchemes
@@ -1141,7 +1182,9 @@ echo "mainDriver: Resolve Files"
 fi
     if [[ $RESOLVE_FILES -eq 1 ]]; then
         resolveFiles
+        lastCleanup
     fi
+
 
     #######################
     # cleanup
