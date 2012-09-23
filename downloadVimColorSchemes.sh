@@ -248,71 +248,78 @@ function shouldDelete() {
   local -r file1="$2"
   RVAL=""
   IFS=$' \t\n'
+  local -r verbose=0
 
   # file0 get maintainer
-  local m0=$( head -10 "$file0" | grep 'Maintainer:' | sed -e 's/^.*Maintainer:\s*\(.*\)$/\1/' )
+  local m0=$( head -20 "$file0" | grep 'Maintainer:' | sed -e 's/^.*Maintainer:\s*\(.*\)$/\1/' )
 
   if [[ "$m0" == "" ]]; then
-    m0=$( head -10 "$file0" | grep 'Author' | sed -e 's/^.*Author\s*:\s*\(.*\)$/\1/' )
+    m0=$( head -20 "$file0" | grep 'Author' | sed -e 's/^.*Author\s*:\s*\(.*\)$/\1/' )
   fi
 
   if [[ "$m0" == "" ]]; then
-    m0=$( head -10 "$file0" | grep 'author' | sed -e 's/^.*author\s*:\s*\(.*\)$/\1/' )
+    m0=$( head -20 "$file0" | grep 'author' | sed -e 's/^.*author\s*:\s*\(.*\)$/\1/' )
   fi
 
   # file1 get maintainer
-  local m1=$( head -10 "$file1" | grep 'Maintainer:' | sed -e 's/^.*Maintainer:\s*\(.*\)$/\1/' )
+  local m1=$( head -20 "$file1" | grep 'Maintainer:' | sed -e 's/^.*Maintainer:\s*\(.*\)$/\1/' )
 
   if [[ "$m1" == "" ]]; then
-    m1=$( head -10 "$file1" | grep 'Author' | sed -e 's/^.*Author\s*:\s*\(.*\)$/\1/' )
+    m1=$( head -20 "$file1" | grep 'Author' | sed -e 's/^.*Author\s*:\s*\(.*\)$/\1/' )
   fi
 
   if [[ "$m1" == "" ]]; then
-    m1=$( head -10 "$file1" | grep 'author' | sed -e 's/^.*author\s*:\s*\(.*\)$/\1/' )
+    m1=$( head -20 "$file1" | grep 'author' | sed -e 's/^.*author\s*:\s*\(.*\)$/\1/' )
   fi
-# echo "m0=$m0"
-# echo "m1=$m1"
+if [[ $verbose -eq 1 ]]; then
+echo "m0=$m0"
+echo "m1=$m1"
+fi
 
   # get change date
-  local d0=$( head -10 "$file0" | grep 'Last Change:' | sed -e 's/^.*Last Change:.*\(20[0-9][0-9]\).*$/\1/' )
+  local d0=$( head -20 "$file0" | grep 'Last Change:' | sed -e 's/^.*Last Change:.*\(20[0-9][0-9]\).*$/\1/' )
   if [[ "$d0" == "" ]]; then
-    d0=$( head -10 "$file0" | grep 'Last Modified:' | sed -e 's/^.*Last Modified:.*\(20[0-9][0-9]\).*$/\1/' )
+    d0=$( head -20 "$file0" | grep 'Last Modified:' | sed -e 's/^.*Last Modified:.*\(20[0-9][0-9]\).*$/\1/' )
   fi
   local -a da0=( $( echo $d0) )
   d0=${da0[0]}
 
-  local d1=$( head -10 "$file1" | grep 'Last Change:' | sed -e 's/^.*Last Change:.*\(20[0-9][0-9]\).*$/\1/' )
+  local d1=$( head -20 "$file1" | grep 'Last Change:' | sed -e 's/^.*Last Change:.*\(20[0-9][0-9]\).*$/\1/' )
   if [[ "$d1" == "" ]]; then
-    d1=$( head -10 "$file1" | grep 'Last Modified:' | sed -e 's/^.*Last Modified:.*\(20[0-9][0-9]\).*$/\1/' )
+    d1=$( head -20 "$file1" | grep 'Last Modified:' | sed -e 's/^.*Last Modified:.*\(20[0-9][0-9]\).*$/\1/' )
   fi
   local -a da1=( $( echo $d1) )
   d1=${da1[0]}
   IFS=$' \t'
-# echo "d0=$d0"
-# echo "d1=$d1"
+if [[ $verbose -eq 1 ]]; then
+echo "d0=$d0"
+echo "d1=$d1"
+fi
 
   # get version
-  local v0=$( head -10 "$file0" | grep 'Version:' | sed -e 's/^.*Version:[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
+  local v0=$( head -20 "$file0" | grep 'Version:' | sed -e 's/^.*Version:[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
   if [[ "$v0" == "" ]]; then
-    v0=$( head -10 "$file0" | grep 'version' | sed -e 's/^.*version[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
+    v0=$( head -20 "$file0" | grep 'version' | sed -e 's/^.*version[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
   fi
   if [[ "$v0" == "" ]]; then
-    v0=$( head -10 "$file0" | grep ' v[0-9]*\..*$' | sed -e 's/^.*\(v[0-9]*\..*\)$/\1/' )
+    v0=$( head -20 "$file0" | grep ' v[0-9]*\..*$' | sed -e 's/^.*\(v[0-9]*\..*\)$/\1/' )
   fi
   local -a va0=( $( echo $v0) )
   v0=${va0[0]}
 
-  local v1=$( head -10 "$file1" | grep 'Version:' | sed -e 's/^.*Version:[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
+  local v1=$( head -20 "$file1" | grep 'Version:' | sed -e 's/^.*Version:[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
   if [[ "$v1" == "" ]]; then
-    v1=$( head -10 "$file1" | grep 'version' | sed -e 's/^.*version[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
+    v1=$( head -20 "$file1" | grep 'version' | sed -e 's/^.*version[ 	]*\([^ 	]*\)[ 	]*$/\1/' )
   fi
   if [[ "$v1" == "" ]]; then
-    v1=$( head -10 "$file1" | grep ' v[0-9]*\..*$' | sed -e 's/^.*\(v[0-9]*\..*\)$/\1/' )
+    v1=$( head -20 "$file1" | grep ' v[0-9]*\..*$' | sed -e 's/^.*\(v[0-9]*\..*\)$/\1/' )
   fi
   local -a va1=( $( echo $v1) )
   v1=${va1[0]}
-# echo "v0=$v0"
-# echo "v1=$v1"
+if [[ $verbose -eq 1 ]]; then
+echo "v0=$v0"
+echo "v1=$v1"
+fi
 
   # get file size
   local -r s0=$( stat -c %s "$file0" )
@@ -322,7 +329,9 @@ function shouldDelete() {
 
   # maintainer are identical
   if [[ "$m0" == "$m1" ]] && [[ "$m0" != "" ]]; then
-# echo "identical non empty"
+if [[ $verbose -eq 1 ]]; then
+echo "identical non empty"
+fi
     are_equal=1
   else
     # break maintainer field into parts
@@ -333,12 +342,14 @@ function shouldDelete() {
       local -r ms1_len=${#ms1[@]}
       local -r ms0_last=$(( $ms0_len - 1 ))
       local -r ms1_last=$(( $ms1_len - 1 ))
-# echo "ms0_len=$ms0_len"
-# echo "ms1_len=$ms1_len"
-# echo "ms0_last=$ms0_last"
-# echo "ms1_last=$ms1_last"
-# echo "ms0[ms0_last]=${ms0[$ms0_last]}"
-# echo "ms1[ms1_last]=${ms1[$ms1_last]}"
+if [[ $verbose -eq 1 ]]; then
+echo "ms0_len=$ms0_len"
+echo "ms1_len=$ms1_len"
+echo "ms0_last=$ms0_last"
+echo "ms1_last=$ms1_last"
+echo "ms0[ms0_last]=${ms0[$ms0_last]}"
+echo "ms1[ms1_last]=${ms1[$ms1_last]}"
+fi
 
       # majority of fields equal
       if [[ $ms0_len -eq $ms1_len ]] && [[  $ms0_len -gt 3  ]] ; then
@@ -379,7 +390,9 @@ function shouldDelete() {
 	# if only one line in the first 6 lines is different, 
 	# assume the same color scheme modulo version
 	if [[ $cnt -ge $end ]]; then
-# echo "first lines equal"
+if [[ $verbose -eq 1 ]]; then
+echo "first lines equal"
+fi
 	    are_equal=1
 	fi
     fi
@@ -395,19 +408,27 @@ function shouldDelete() {
 	    fi
 	done
 	if [[ $cnt -eq 10 ]]; then
-# echo "last lines equal"
+if [[ $verbose -eq 1 ]]; then
+echo "last lines equal"
+fi
 	    are_equal=1
 	fi
     fi
   fi
 
-# echo "are_equal==$are_equal"
+if [[ $verbose -eq 1 ]]; then
+echo "are_equal==$are_equal"
+fi
   # maintainer are identical
   if [[ $are_equal -eq 1 ]]; then
-# echo "are_equal"
+if [[ $verbose -eq 1 ]]; then
+echo "are_equal"
+fi
     # check versions, delete earlier
     if [[ "$v0" != "" ]] && [[ "$v1" != "" ]]; then
-# echo "do version"
+if [[ $verbose -eq 1 ]]; then
+echo "do version"
+fi
       if [[ "$v0" < "$v1" ]]; then
         RVAL="$file0"
       else
@@ -416,22 +437,30 @@ function shouldDelete() {
     fi
     # check dates, delete older
     if [[ "$RVAL" == "" ]] && [[ "$d0" != "" ]] && [[ "$d1" != "" ]]; then
-# echo "do date"
+if [[ $verbose -eq 1 ]]; then
+echo "do date"
+fi
       if [[ "$d0" < "$d1" ]]; then
         RVAL="$file0"
       else
         RVAL="$file1"
       fi
     fi
-# echo "s0=$s0"
-# echo "s1=$s1"
+if [[ $verbose -eq 1 ]]; then
+echo "s0=$s0"
+echo "s1=$s1"
+fi
     # check size, delete smaller
     if [[ "$RVAL" == "" ]]; then
       if [[ $s0 -eq $s1 ]]; then
-# echo "do size s0 == s1"
+if [[ $verbose -eq 1 ]]; then
+echo "do size s0 == s1"
+fi
         RVAL="$file1"
       elif [[ $s0 -lt $s1 ]]; then
-# echo "do size s0 < s1"
+if [[ $verbose -eq 1 ]]; then
+echo "do size s0 < s1"
+fi
         RVAL="$file0"
       fi
     fi
@@ -441,11 +470,8 @@ function shouldDelete() {
   return 0
 }
 
-# baycomb.vim baycomb_1.vim
-# version 2004.0
-# derefined.vim derefined_1.vim
-# desertedocean v0.2b desertedocean v0.5
-
+#shouldDelete jellybeans.vim jellybeans_1.vim
+#echo "RVAL=$RVAL"
 #shouldDelete breeze.vim breeze_1.vim
 #echo "RVAL=$RVAL"
 
@@ -798,6 +824,11 @@ fi
             # rather, it will change your colors based upon time of day.
             if [[ "$file" == "daytimecolorer.vim" ]]; then
                 $RM "$file"
+            elif [[ "$file" == "withdrawn.vim" ]]; then
+                # empty file
+                $RM "$file"
+            elif [[ "$file" == "solarized.vim" ]]; then
+                $RM "$file"
             fi
             ;;
         tmp)
@@ -861,12 +892,12 @@ function lastCleanup() {
     case "$file" in
         *_1.vim)
             base=$( basename "$file" _1.vim)
+#echo "$file   $base.vim"
             if [[ -e $base.vim ]]; then
               shouldDelete $base.vim $file
               if [[ "$RVAL" != "" ]]; then
-#echo "$file   $base.vim"
 #echo "RVAL=$RVAL"
-                $RM -rf "$RVAL"
+               $RM -rf "$RVAL"
               fi
             fi
         ;;

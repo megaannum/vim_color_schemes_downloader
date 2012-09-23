@@ -21,7 +21,7 @@ The location of some of the executables used by the script may
 differ in different Linux distributions. They will have to be
 adjusted in such cases.
 
-Currently, the script downloads some 689 "unique" Vim color scheme files.
+Currently, the script downloads some 686 "unique" Vim color scheme files.
 
 # Purpose
 
